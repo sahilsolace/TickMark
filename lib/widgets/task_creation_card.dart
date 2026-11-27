@@ -42,9 +42,11 @@ class _TaskCreationCardState extends State<TaskCreationCard> {
   }
 
   Future<void> _loadProjects({int? selectProjectId}) async {
+    if (!mounted) return;
     setState(() => _isLoadingProjects = true);
     try {
       final projects = await _dbHelper.getProjects(includeArchived: false);
+      if (!mounted) return;
       setState(() {
         _projects = projects;
         if (selectProjectId != null) {
@@ -59,13 +61,15 @@ class _TaskCreationCardState extends State<TaskCreationCard> {
     } catch (e) {
       debugPrint('Error loading projects: $e');
     } finally {
-      setState(() => _isLoadingProjects = false);
+      if (mounted) {
+        setState(() => _isLoadingProjects = false);
+      }
     }
   }
 
   Future<void> _handleAddNewProject() async {
     final newProject = await AddProjectDialog.show(context);
-    if (newProject != null) {
+    if (mounted && newProject != null) {
       await _loadProjects(selectProjectId: newProject.id);
     }
   }
@@ -95,10 +99,13 @@ class _TaskCreationCardState extends State<TaskCreationCard> {
         billable: _isBillable,
       );
 
+      if (!mounted) return;
       _taskTitleController.clear();
       widget.onTaskAdded();
     } catch (e) {
-      setState(() => _validationError = 'Failed to create task: $e');
+      if (mounted) {
+        setState(() => _validationError = 'Failed to create task: $e');
+      }
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -113,7 +120,6 @@ class _TaskCreationCardState extends State<TaskCreationCard> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.cardBorder),
         boxShadow: const [
           BoxShadow(
             color: AppColors.cardShadow,

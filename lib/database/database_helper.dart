@@ -133,11 +133,7 @@ class DatabaseHelper {
 
     // Default Projects
     final initialProjects = [
-      'BAU Farm Intelligence',
-      'Bingo Blast',
-      'Flutter Prep',
-      'Solace Super Hero',
-      'Internal Tasks',
+
     ];
 
     for (final proj in initialProjects) {

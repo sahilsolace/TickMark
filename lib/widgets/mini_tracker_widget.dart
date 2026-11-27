@@ -40,7 +40,9 @@ class MiniTrackerWidget extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Container(
+      body: DragToResizeArea(
+        resizeEdgeSize: 8,
+        child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -316,6 +318,7 @@ class MiniTrackerWidget extends StatelessWidget {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

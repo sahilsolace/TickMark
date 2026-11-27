@@ -116,7 +116,6 @@ class _SummaryCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.cardBorder),
         boxShadow: const [
           BoxShadow(
             color: AppColors.cardShadow,

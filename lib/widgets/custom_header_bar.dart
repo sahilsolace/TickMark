@@ -53,13 +53,11 @@ class _CustomHeaderBarState extends State<CustomHeaderBar> {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.sizeOf(context).width < 560;
     return Container(
       height: 50,
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(
-          bottom: BorderSide(color: AppColors.headerBorder, width: 1),
-        ),
       ),
       child: Row(
         children: [
@@ -67,13 +65,13 @@ class _CustomHeaderBarState extends State<CustomHeaderBar> {
           Expanded(
             child: DragToMoveArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 16),
                 child: Row(
                   children: [
                     // App Logo Icon
                     Container(
-                      width: 30,
-                      height: 30,
+                      width: isCompact ? 26 : 30,
+                      height: isCompact ? 26 : 30,
                       decoration: BoxDecoration(
                         color: AppColors.primaryGreen,
                         borderRadius: BorderRadius.circular(8),
@@ -106,6 +104,7 @@ class _CustomHeaderBarState extends State<CustomHeaderBar> {
                             letterSpacing: -0.3,
                           ),
                         ),
+                        if (!isCompact) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -123,6 +122,7 @@ class _CustomHeaderBarState extends State<CustomHeaderBar> {
                             ),
                           ),
                         ),
+                        ],
                       ],
                     ),
                     const Spacer(),
@@ -138,7 +138,14 @@ class _CustomHeaderBarState extends State<CustomHeaderBar> {
             child: Row(
               children: [
                 // Export CSV Button
-                FilledButton.icon(
+                if (isCompact)
+                  IconButton(
+                    tooltip: 'Export CSV',
+                    onPressed: widget.onExportCsv,
+                    icon: const Icon(Icons.file_download_outlined, size: 18),
+                    visualDensity: VisualDensity.compact,
+                  )
+                else FilledButton.icon(
                   onPressed: widget.onExportCsv,
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.primaryGreen,
@@ -155,7 +162,7 @@ class _CustomHeaderBarState extends State<CustomHeaderBar> {
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                 ),
-                const SizedBox(width: 6),
+                if (!isCompact) const SizedBox(width: 6),
 
                 // Settings Button
                 IconButton(
@@ -181,7 +188,7 @@ class _CustomHeaderBarState extends State<CustomHeaderBar> {
                 const SizedBox(width: 2),
 
                 // Window Minimize (Minimizes to ongoing task widget)
-                IconButton(
+                if (!isCompact) IconButton(
                   tooltip: 'Minimize to Ongoing Task',
                   icon: const Icon(Icons.remove, size: 18, color: AppColors.textSecondary),
                   onPressed: widget.onMinimizeToMini,
@@ -189,7 +196,7 @@ class _CustomHeaderBarState extends State<CustomHeaderBar> {
                 ),
 
                 // Window Maximize / Restore
-                IconButton(
+                if (!isCompact) IconButton(
                   tooltip: _isMaximized ? 'Restore' : 'Maximize',
                   icon: Icon(
                     _isMaximized ? Icons.filter_none_rounded : Icons.crop_square_rounded,

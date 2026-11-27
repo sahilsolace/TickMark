@@ -75,9 +75,10 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
         _savedFullPosition = pos;
       }
 
-      await windowManager.setMinimumSize(const Size(320, 130));
-      await windowManager.setMaximumSize(const Size(480, 180));
-      await windowManager.setSize(const Size(380, 140));
+      await windowManager.setResizable(true);
+      await windowManager.setMinimumSize(const Size(300, 110));
+      await windowManager.setMaximumSize(const Size(520, 220));
+      await windowManager.setSize(const Size(340, 120));
       await windowManager.setAlwaysOnTop(true);
     } catch (e) {
       debugPrint('Error transitioning to mini mode: $e');
@@ -309,7 +310,6 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: AppColors.cardBorder),
                               ),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -395,4 +395,3 @@ class _MainScreenState extends State<MainScreen> with WindowListener {
     );
   }
 }
-
