@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../controllers/time_tracking_controller.dart';
 import '../models/task_model.dart';
-import '../services/time_tracking_service.dart';
 import '../theme/app_colors.dart';
 
 class TaskCardItem extends StatelessWidget {
@@ -93,15 +94,19 @@ class TaskCardItem extends StatelessWidget {
     );
 
     if (confirmed == true && task.id != null) {
-      final timeService = TimeTrackingService();
-      await timeService.deleteTask(task.id!);
+      final timeController = Get.isRegistered<TimeTrackingController>()
+          ? Get.find<TimeTrackingController>()
+          : Get.put<TimeTrackingController>(TimeTrackingController());
+      await timeController.deleteTask(task.id!);
       onTaskDeleted();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final timeService = TimeTrackingService();
+    final timeController = Get.isRegistered<TimeTrackingController>()
+        ? Get.find<TimeTrackingController>()
+        : Get.put<TimeTrackingController>(TimeTrackingController());
     final isRunning = task.isRunning;
 
     return Container(
@@ -272,7 +277,7 @@ class TaskCardItem extends StatelessWidget {
                 IconButton(
                   tooltip: task.totalDurationSeconds > 0 ? 'Resume' : 'Play',
                   icon: const Icon(Icons.play_arrow_rounded, color: AppColors.playGreen, size: 22),
-                  onPressed: () => timeService.startOrResumeTimer(task),
+                  onPressed: () => timeController.startOrResumeTimer(task),
                   style: IconButton.styleFrom(
                     backgroundColor: AppColors.playBg,
                     hoverColor: AppColors.primaryGreen.withValues(alpha: 0.2),
@@ -285,7 +290,7 @@ class TaskCardItem extends StatelessWidget {
                 IconButton(
                   tooltip: 'Pause',
                   icon: const Icon(Icons.pause_rounded, color: AppColors.pauseAmber, size: 22),
-                  onPressed: () => timeService.pauseActiveTimer(),
+                  onPressed: () => timeController.pauseActiveTimer(),
                   style: IconButton.styleFrom(
                     backgroundColor: AppColors.pauseBg,
                     hoverColor: AppColors.pauseAmber.withValues(alpha: 0.2),
@@ -301,7 +306,7 @@ class TaskCardItem extends StatelessWidget {
               IconButton(
                 tooltip: 'Stop Session',
                 icon: const Icon(Icons.stop_rounded, color: AppColors.stopGray, size: 20),
-                onPressed: (isRunning && !isReadOnly) ? () => timeService.stopTimer(task.id!) : null,
+                onPressed: (isRunning && !isReadOnly) ? () => timeController.stopTimer(task.id!) : null,
                 style: IconButton.styleFrom(
                   backgroundColor: isRunning ? AppColors.stopBg : const Color(0xFFF3F4F6),
                   disabledBackgroundColor: const Color(0xFFF3F4F6),

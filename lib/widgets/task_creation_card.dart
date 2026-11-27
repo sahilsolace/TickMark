@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../database/database_helper.dart';
-import '../models/project_model.dart';
-import '../services/time_tracking_service.dart';
-import '../theme/app_colors.dart';
-import 'add_project_dialog.dart';
+import 'package:get/get.dart';
+import 'package:tickmark/controllers/time_tracking_controller.dart';
+import 'package:tickmark/controllers/timesheet_controller.dart';
+import 'package:tickmark/models/project_model.dart';
+import 'package:tickmark/theme/app_colors.dart';
 
 class TaskCreationCard extends StatefulWidget {
   final VoidCallback onTaskAdded;
@@ -18,21 +18,25 @@ class TaskCreationCard extends StatefulWidget {
 }
 
 class _TaskCreationCardState extends State<TaskCreationCard> {
-  final _taskTitleController = TextEditingController();
-  final _timeService = TimeTrackingService();
-  final _dbHelper = DatabaseHelper.instance;
+  final TextEditingController _taskTitleController = TextEditingController();
 
-  List<ProjectModel> _projects = [];
+  final TimeTrackingController _timeController = Get.isRegistered<TimeTrackingController>()
+      ? Get.find<TimeTrackingController>()
+      : Get.put<TimeTrackingController>(TimeTrackingController());
+
+  final TimesheetController _timesheetController = Get.isRegistered<TimesheetController>()
+      ? Get.find<TimesheetController>()
+      : Get.put<TimesheetController>(TimesheetController());
+
   ProjectModel? _selectedProject;
   bool _isBillable = true;
-  bool _isLoadingProjects = true;
   bool _isSubmitting = false;
   String? _validationError;
 
   @override
   void initState() {
     super.initState();
-    _loadProjects();
+    _timesheetController.fetchProjects();
   }
 
   @override
@@ -41,43 +45,16 @@ class _TaskCreationCardState extends State<TaskCreationCard> {
     super.dispose();
   }
 
-  Future<void> _loadProjects({int? selectProjectId}) async {
-    if (!mounted) return;
-    setState(() => _isLoadingProjects = true);
-    try {
-      final projects = await _dbHelper.getProjects(includeArchived: false);
-      if (!mounted) return;
-      setState(() {
-        _projects = projects;
-        if (selectProjectId != null) {
-          _selectedProject = projects.where((p) => p.id == selectProjectId).firstOrNull ??
-              (projects.isNotEmpty ? projects.first : null);
-        } else if (_selectedProject == null && projects.isNotEmpty) {
-          _selectedProject = projects.first;
-        } else if (_selectedProject != null && !projects.any((p) => p.id == _selectedProject!.id)) {
-          _selectedProject = projects.isNotEmpty ? projects.first : null;
-        }
-      });
-    } catch (e) {
-      debugPrint('Error loading projects: $e');
-    } finally {
-      if (mounted) {
-        setState(() => _isLoadingProjects = false);
-      }
-    }
-  }
-
-  Future<void> _handleAddNewProject() async {
-    final newProject = await AddProjectDialog.show(context);
-    if (mounted && newProject != null) {
-      await _loadProjects(selectProjectId: newProject.id);
-    }
-  }
-
   Future<void> _submitTask() async {
-    final taskText = _taskTitleController.text.trim();
+    final String taskText = _taskTitleController.text.trim();
 
-    if (_selectedProject == null) {
+    final List<ProjectModel> projects = _timesheetController.projects.toList();
+    ProjectModel? project = _selectedProject;
+    if (project == null && projects.isNotEmpty) {
+      project = projects.first;
+    }
+
+    if (project == null) {
       setState(() => _validationError = 'Please select a project');
       return;
     }
@@ -93,8 +70,9 @@ class _TaskCreationCardState extends State<TaskCreationCard> {
     });
 
     try {
-      await _timeService.addTask(
-        projectId: _selectedProject!.id!,
+      final int pid = project.id ?? project.projectId;
+      await _timeController.addTask(
+        projectId: pid,
         taskDescription: taskText,
         billable: _isBillable,
       );
@@ -132,11 +110,11 @@ class _TaskCreationCardState extends State<TaskCreationCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Section Title: Select Project
-          Row(
+          const Row(
             children: [
-              const Icon(Icons.work_outline_rounded, size: 15, color: AppColors.primaryGreen),
-              const SizedBox(width: 8),
-              const Text(
+              Icon(Icons.work_outline_rounded, size: 15, color: AppColors.primaryGreen),
+              SizedBox(width: 8),
+              Text(
                 'Select Project',
                 style: TextStyle(
                   fontSize: 13,
@@ -144,24 +122,11 @@ class _TaskCreationCardState extends State<TaskCreationCard> {
                   color: AppColors.textPrimary,
                 ),
               ),
-              const Spacer(),
-              TextButton.icon(
-                onPressed: _handleAddNewProject,
-                icon: const Icon(Icons.add, size: 14),
-                label: const Text(
-                  'New Project',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                ),
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 6),
 
-          // Project Dropdown Row
+          // Project Dropdown Row (Reactive with Obx)
           Row(
             children: [
               Expanded(
@@ -173,62 +138,71 @@ class _TaskCreationCardState extends State<TaskCreationCard> {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: AppColors.cardBorder),
                   ),
-                  child: _isLoadingProjects
-                      ? const Center(
-                          child: SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryGreen),
-                          ),
-                        )
-                      : DropdownButtonHideUnderline(
-                          child: DropdownButton<int>(
-                            value: _selectedProject?.id,
-                            isExpanded: true,
-                            hint: const Text('Choose a project...', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
-                            icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
-                            items: [
-                              ..._projects.map(
-                                (proj) => DropdownMenuItem<int>(
-                                  value: proj.id,
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 8,
-                                        height: 8,
-                                        decoration: const BoxDecoration(
-                                          color: AppColors.primaryGreen,
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Text(
-                                        proj.projectName,
-                                        style: const TextStyle(fontSize: 13, color: AppColors.textDark),
-                                      ),
-                                    ],
+                  child: Obx(() {
+                    if (_timesheetController.isLoadingProjects.value) {
+                      return const Center(
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryGreen),
+                        ),
+                      );
+                    }
+
+                    final List<ProjectModel> projects = _timesheetController.projects.toList();
+                    final int? currentId = _selectedProject?.id ??
+                        (_selectedProject?.projectId != null && _selectedProject!.projectId > 0
+                            ? _selectedProject!.projectId
+                            : (projects.isNotEmpty ? (projects.first.id ?? projects.first.projectId) : null));
+
+                    return DropdownButtonHideUnderline(
+                      child: DropdownButton<int>(
+                        value: projects.any((p) => (p.id ?? p.projectId) == currentId) ? currentId : null,
+                        isExpanded: true,
+                        hint: const Text('Choose a project...', style: TextStyle(color: AppColors.textMuted, fontSize: 13)),
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textSecondary),
+                        items: projects.map((ProjectModel proj) {
+                          final int pVal = proj.id ?? proj.projectId;
+                          return DropdownMenuItem<int>(
+                            value: pVal,
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.primaryGreen,
+                                    shape: BoxShape.circle,
                                   ),
                                 ),
-                              ),
-                            ],
-                            onChanged: (id) {
-                              if (id != null) {
-                                setState(() {
-                                  _selectedProject = _projects.firstWhere((p) => p.id == id);
-                                  _validationError = null;
-                                });
-                              }
-                            },
-                          ),
-                        ),
+                                const SizedBox(width: 10),
+                                Text(
+                                  proj.projectName,
+                                  style: const TextStyle(fontSize: 13, color: AppColors.textDark),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (int? id) {
+                          if (id != null) {
+                            setState(() {
+                              _selectedProject = projects.firstWhere((p) => (p.id ?? p.projectId) == id);
+                              _validationError = null;
+                            });
+                          }
+                        },
+                      ),
+                    );
+                  }),
                 ),
               ),
               const SizedBox(width: 8),
-              // Quick Add Project Button
+              // Refresh Projects from API
               IconButton(
-                tooltip: 'Add New Project',
-                icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primaryGreen, size: 20),
-                onPressed: _handleAddNewProject,
+                tooltip: 'Refresh Projects from API',
+                icon: const Icon(Icons.refresh_rounded, color: AppColors.primaryGreen, size: 20),
+                onPressed: () => _timesheetController.fetchProjects(),
                 style: IconButton.styleFrom(
                   backgroundColor: AppColors.primaryGreenLight,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -240,13 +214,13 @@ class _TaskCreationCardState extends State<TaskCreationCard> {
 
           const SizedBox(height: 12),
 
-          // Task Title & Controls
-          Row(
+          // Section Title: Task Description
+          const Row(
             children: [
-              const Icon(Icons.edit_note_rounded, size: 16, color: AppColors.primaryGreen),
-              const SizedBox(width: 8),
-              const Text(
-                'Task Title',
+              Icon(Icons.edit_note_rounded, size: 16, color: AppColors.primaryGreen),
+              SizedBox(width: 8),
+              Text(
+                'Task Description',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -257,171 +231,113 @@ class _TaskCreationCardState extends State<TaskCreationCard> {
           ),
           const SizedBox(height: 6),
 
-          // Responsive Task Input & Add Button
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isNarrow = constraints.maxWidth < 560;
+          // Task Input Field
+          TextField(
+            controller: _taskTitleController,
+            maxLines: 2,
+            minLines: 1,
+            style: const TextStyle(fontSize: 13, color: AppColors.textDark),
+            decoration: InputDecoration(
+              hintText: 'What are you working on? (e.g. Fix authentication issue)',
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              errorText: _validationError,
+            ),
+            onChanged: (text) {
+              if (_validationError != null && text.trim().isNotEmpty) {
+                setState(() => _validationError = null);
+              }
+            },
+          ),
 
-              final taskInput = TextField(
-                controller: _taskTitleController,
-                style: const TextStyle(fontSize: 13, color: AppColors.textDark),
-                decoration: const InputDecoration(
-                  hintText: 'What are you working on? (e.g. Fix authentication issue)',
-                  prefixIcon: Icon(Icons.list_alt_rounded, size: 18, color: AppColors.textSecondary),
-                ),
-                onSubmitted: (_) => _submitTask(),
-                onChanged: (_) {
-                  if (_validationError != null) {
-                    setState(() => _validationError = null);
-                  }
-                },
-              );
+          const SizedBox(height: 12),
 
-              final billableToggle = Container(
-                height: 42,
-                padding: const EdgeInsets.all(3),
+          // Bottom Controls: Billable / Non-Billable & Add Task Button
+          Row(
+            children: [
+              // Billable / Non-Billable Segment
+              Container(
                 decoration: BoxDecoration(
-                  color: AppColors.backgroundLightGreen,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.cardBorder),
+                  color: const Color(0xFFF3F4F6),
+                  borderRadius: BorderRadius.circular(6),
                 ),
+                padding: const EdgeInsets.all(3),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildBillingOption(
-                      title: 'Billable',
+                    _buildBillableTab(
+                      label: 'Billable',
                       isSelected: _isBillable,
                       onTap: () => setState(() => _isBillable = true),
                     ),
-                    _buildBillingOption(
-                      title: 'Non-billable',
+                    _buildBillableTab(
+                      label: 'Non-Billable',
                       isSelected: !_isBillable,
                       onTap: () => setState(() => _isBillable = false),
                     ),
                   ],
                 ),
-              );
+              ),
 
-              final addButton = SizedBox(
-                height: 42,
-                child: ElevatedButton.icon(
-                  onPressed: _isSubmitting ? null : _submitTask,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryGreen,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  icon: _isSubmitting
-                      ? const SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.add_task_rounded, size: 17),
-                  label: const Text(
-                    'Add Task',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
+              const Spacer(),
+
+              // Submit Button
+              ElevatedButton.icon(
+                onPressed: _isSubmitting ? null : _submitTask,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryGreen,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                 ),
-              );
-
-              if (isNarrow) {
-                return Column(
-                  children: [
-                    taskInput,
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(child: billableToggle),
-                        const SizedBox(width: 8),
-                        addButton,
-                      ],
-                    ),
-                  ],
-                );
-              }
-
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: taskInput),
-                  const SizedBox(width: 10),
-                  billableToggle,
-                  const SizedBox(width: 10),
-                  addButton,
-                ],
-              );
-            },
+                icon: _isSubmitting
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.add_task_rounded, size: 16),
+                label: Text(
+                  _isSubmitting ? 'Adding...' : 'Add Task',
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              ),
+            ],
           ),
-
-          if (_validationError != null) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.error_outline_rounded, size: 14, color: AppColors.deleteRed),
-                const SizedBox(width: 6),
-                Text(
-                  _validationError!,
-                  style: const TextStyle(fontSize: 12, color: AppColors.deleteRed),
-                ),
-              ],
-            ),
-          ],
         ],
       ),
     );
   }
 
-  Widget _buildBillingOption({
-    required String title,
+  Widget _buildBillableTab({
+    required String label,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
-    return InkWell(
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(6),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(
           color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(4),
           boxShadow: isSelected
-              ? const [
+              ? [
                   BoxShadow(
-                    color: Color(0x0A000000),
+                    color: Colors.black.withValues(alpha: 0.08),
                     blurRadius: 4,
-                    offset: Offset(0, 1),
+                    offset: const Offset(0, 1),
                   ),
                 ]
               : null,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? (title == 'Billable' ? AppColors.billableGreen : AppColors.nonBillableGray)
-                    : Colors.transparent,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
-              ),
-            ),
-          ],
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+            color: isSelected ? AppColors.primaryGreen : AppColors.textSecondary,
+          ),
         ),
       ),
     );

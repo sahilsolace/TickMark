@@ -4,10 +4,11 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../models/employee_model.dart';
-import '../models/project_model.dart';
+import 'package:tickmark/models/project_model.dart';
 import '../models/task_model.dart';
 import '../models/daily_summary_model.dart';
 import '../models/csv_export_row.dart';
+
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -276,6 +277,46 @@ class DatabaseHelper {
       createdAt: now,
       updatedAt: now,
     );
+  }
+
+  Future<void> upsertProjects(List<ProjectModel> projects) async {
+    final db = await instance.database;
+    final now = DateTime.now().toIso8601String();
+
+    for (final p in projects) {
+      final name = p.projectName.trim();
+      if (name.isEmpty) continue;
+      final pid = p.id ?? p.projectId;
+
+      // Check if project exists by id or by name
+      final existing = await db.query(
+        'projects',
+        where: 'id = ? OR project_name = ? COLLATE NOCASE',
+        whereArgs: [pid > 0 ? pid : -1, name],
+      );
+
+      if (existing.isNotEmpty) {
+        final existingId = existing.first['id'] as int;
+        await db.update(
+          'projects',
+          {
+            'project_name': name,
+            'is_archived': p.isArchived ? 1 : 0,
+            'updated_at': now,
+          },
+          where: 'id = ?',
+          whereArgs: [existingId],
+        );
+      } else {
+        await db.insert('projects', {
+          if (pid > 0) 'id': pid,
+          'project_name': name,
+          'is_archived': p.isArchived ? 1 : 0,
+          'created_at': p.createdAt.isNotEmpty ? p.createdAt : now,
+          'updated_at': now,
+        });
+      }
+    }
   }
 
   Future<void> updateProject(int id, String newName) async {
@@ -570,6 +611,8 @@ class DatabaseHelper {
       );
     }).toList();
   }
+
+
 
   // ---------------------------------------------------------------------------
   // DATABASE STATS FOR SETTINGS

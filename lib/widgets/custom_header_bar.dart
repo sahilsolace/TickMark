@@ -3,15 +3,17 @@ import 'package:window_manager/window_manager.dart';
 import '../theme/app_colors.dart';
 
 class CustomHeaderBar extends StatefulWidget {
-  final VoidCallback onOpenSettings;
-  final VoidCallback onExportCsv;
-  final VoidCallback onMinimizeToMini;
+  final VoidCallback? onOpenSettings;
+  final VoidCallback? onSyncNow;
+  final VoidCallback? onMinimizeToMini;
+  final bool isLoginHeader;
 
   const CustomHeaderBar({
     super.key,
-    required this.onOpenSettings,
-    required this.onExportCsv,
-    required this.onMinimizeToMini,
+    this.onOpenSettings,
+    this.onSyncNow,
+    this.onMinimizeToMini,
+    this.isLoginHeader = false,
   });
 
   @override
@@ -50,15 +52,16 @@ class _CustomHeaderBarState extends State<CustomHeaderBar> {
       debugPrint('Error toggling maximize: $e');
     }
   }
+  Future<void> _minimizeWindow() async {
+    await windowManager.minimize();
+  }
 
   @override
   Widget build(BuildContext context) {
     final isCompact = MediaQuery.sizeOf(context).width < 560;
     return Container(
       height: 50,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-      ),
+      decoration: const BoxDecoration(color: Colors.white),
       child: Row(
         children: [
           // Drag to move window area covering the brand section
@@ -77,7 +80,9 @@ class _CustomHeaderBarState extends State<CustomHeaderBar> {
                         borderRadius: BorderRadius.circular(8),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primaryGreen.withValues(alpha: 0.25),
+                            color: AppColors.primaryGreen.withValues(
+                              alpha: 0.25,
+                            ),
                             blurRadius: 6,
                             offset: const Offset(0, 2),
                           ),
@@ -105,23 +110,26 @@ class _CustomHeaderBarState extends State<CustomHeaderBar> {
                           ),
                         ),
                         if (!isCompact) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryGreenLight,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Text(
-                            'DESKTOP',
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primaryGreen,
-                              letterSpacing: 0.5,
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryGreenLight,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'DESKTOP',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primaryGreen,
+                                letterSpacing: 0.5,
+                              ),
                             ),
                           ),
-                        ),
                         ],
                       ],
                     ),
@@ -131,96 +139,176 @@ class _CustomHeaderBarState extends State<CustomHeaderBar> {
               ),
             ),
           ),
+          widget.isLoginHeader
+              ? Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Row(
+                    children: [
+                      // Window Minimize (Minimizes to ongoing task widget)
+                      if (!isCompact)
+                        IconButton(
+                          tooltip: 'Minimize to Ongoing Task',
+                          icon: const Icon(
+                            Icons.remove,
+                            size: 18,
+                            color: AppColors.textSecondary,
+                          ),
+                          onPressed: _minimizeWindow,
+                        ),
 
-          // Header Action Buttons
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Row(
-              children: [
-                // Export CSV Button
-                if (isCompact)
-                  IconButton(
-                    tooltip: 'Export CSV',
-                    onPressed: widget.onExportCsv,
-                    icon: const Icon(Icons.file_download_outlined, size: 18),
-                    visualDensity: VisualDensity.compact,
-                  )
-                else FilledButton.icon(
-                  onPressed: widget.onExportCsv,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primaryGreen,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    minimumSize: const Size(0, 32),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
-                    ),
+                      // Window Maximize / Restore
+                      if (!isCompact)
+                        IconButton(
+                          tooltip: _isMaximized ? 'Restore' : 'Maximize',
+                          icon: Icon(
+                            _isMaximized
+                                ? Icons.filter_none_rounded
+                                : Icons.crop_square_rounded,
+                            size: 16,
+                            color: AppColors.textSecondary,
+                          ),
+                          onPressed: _toggleMaximize,
+                          visualDensity: VisualDensity.compact,
+                        ),
+
+                      // Window Close
+                      IconButton(
+                        tooltip: 'Close',
+                        icon: const Icon(
+                          Icons.close,
+                          size: 18,
+                          color: AppColors.textSecondary,
+                        ),
+                        hoverColor: AppColors.deleteBg,
+                        onPressed: () async {
+                          await windowManager.close();
+                        },
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      const SizedBox(width: 6),
+                    ],
                   ),
-                  icon: const Icon(Icons.file_download_outlined, size: 15),
-                  label: const Text(
-                    'Export CSV',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                )
+              :
+                // Header Action Buttons
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Row(
+                    children: [
+                      // Export CSV Button
+                      if (isCompact)
+                        IconButton(
+                          tooltip: 'Sync Now',
+                          onPressed: widget.onSyncNow,
+                          icon: const Icon(Icons.sync, size: 18),
+                          visualDensity: VisualDensity.compact,
+                        )
+                      else
+                        FilledButton.icon(
+                          onPressed: widget.onSyncNow,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primaryGreen,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            minimumSize: const Size(0, 32),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                          icon: const Icon(
+                            Icons.sync,
+                            size: 15,
+                          ),
+                          label: const Text(
+                            'Sync Now',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      if (!isCompact) const SizedBox(width: 6),
+
+                      // Settings Button
+                      IconButton(
+                        tooltip: 'Settings',
+                        icon: const Icon(
+                          Icons.settings_outlined,
+                          size: 18,
+                          color: AppColors.textSecondary,
+                        ),
+                        onPressed: widget.onOpenSettings,
+                        style: IconButton.styleFrom(
+                          hoverColor: AppColors.primaryGreenLight,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+
+                      // Mini Mode Widget Toggle Button
+                      IconButton(
+                        tooltip: 'Mini Tracker (Ongoing Task Only)',
+                        icon: const Icon(
+                          Icons.branding_watermark_outlined,
+                          size: 18,
+                          color: AppColors.primaryGreen,
+                        ),
+                        onPressed: widget.onMinimizeToMini,
+                        style: IconButton.styleFrom(
+                          hoverColor: AppColors.primaryGreenLight,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+
+                      // Window Minimize (Minimizes to ongoing task widget)
+                      if (!isCompact)
+                        IconButton(
+                          tooltip: 'Minimize to Ongoing Task',
+                          icon: const Icon(
+                            Icons.remove,
+                            size: 18,
+                            color: AppColors.textSecondary,
+                          ),
+                          onPressed: widget.onMinimizeToMini,
+                          visualDensity: VisualDensity.compact,
+                        ),
+
+                      // Window Maximize / Restore
+                      if (!isCompact)
+                        IconButton(
+                          tooltip: _isMaximized ? 'Restore' : 'Maximize',
+                          icon: Icon(
+                            _isMaximized
+                                ? Icons.filter_none_rounded
+                                : Icons.crop_square_rounded,
+                            size: 16,
+                            color: AppColors.textSecondary,
+                          ),
+                          onPressed: _toggleMaximize,
+                          visualDensity: VisualDensity.compact,
+                        ),
+
+                      // Window Close
+                      IconButton(
+                        tooltip: 'Close',
+                        icon: const Icon(
+                          Icons.close,
+                          size: 18,
+                          color: AppColors.textSecondary,
+                        ),
+                        hoverColor: AppColors.deleteBg,
+                        onPressed: () async {
+                          await windowManager.close();
+                        },
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      const SizedBox(width: 6),
+                    ],
                   ),
                 ),
-                if (!isCompact) const SizedBox(width: 6),
-
-                // Settings Button
-                IconButton(
-                  tooltip: 'Settings',
-                  icon: const Icon(Icons.settings_outlined, size: 18, color: AppColors.textSecondary),
-                  onPressed: widget.onOpenSettings,
-                  style: IconButton.styleFrom(
-                    hoverColor: AppColors.primaryGreenLight,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-
-                // Mini Mode Widget Toggle Button
-                IconButton(
-                  tooltip: 'Mini Tracker (Ongoing Task Only)',
-                  icon: const Icon(Icons.branding_watermark_outlined, size: 18, color: AppColors.primaryGreen),
-                  onPressed: widget.onMinimizeToMini,
-                  style: IconButton.styleFrom(
-                    hoverColor: AppColors.primaryGreenLight,
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ),
-                const SizedBox(width: 2),
-
-                // Window Minimize (Minimizes to ongoing task widget)
-                if (!isCompact) IconButton(
-                  tooltip: 'Minimize to Ongoing Task',
-                  icon: const Icon(Icons.remove, size: 18, color: AppColors.textSecondary),
-                  onPressed: widget.onMinimizeToMini,
-                  visualDensity: VisualDensity.compact,
-                ),
-
-                // Window Maximize / Restore
-                if (!isCompact) IconButton(
-                  tooltip: _isMaximized ? 'Restore' : 'Maximize',
-                  icon: Icon(
-                    _isMaximized ? Icons.filter_none_rounded : Icons.crop_square_rounded,
-                    size: 16,
-                    color: AppColors.textSecondary,
-                  ),
-                  onPressed: _toggleMaximize,
-                  visualDensity: VisualDensity.compact,
-                ),
-
-                // Window Close
-                IconButton(
-                  tooltip: 'Close',
-                  icon: const Icon(Icons.close, size: 18, color: AppColors.textSecondary),
-                  hoverColor: AppColors.deleteBg,
-                  onPressed: () async {
-                    await windowManager.close();
-                  },
-                  visualDensity: VisualDensity.compact,
-                ),
-                const SizedBox(width: 6),
-              ],
-            ),
-          ),
         ],
       ),
     );

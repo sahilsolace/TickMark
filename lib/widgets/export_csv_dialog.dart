@@ -50,6 +50,7 @@ class _ExportCsvDialogState extends State<ExportCsvDialog> {
   String _formatDate(DateTime dt) => DateFormat('yyyy-MM-dd').format(dt);
 
   Future<void> _loadPreview() async {
+    if (!mounted) return;
     setState(() => _isLoadingPreview = true);
 
     try {
@@ -60,17 +61,21 @@ class _ExportCsvDialogState extends State<ExportCsvDialog> {
         endDate: _scope == ExportScope.customRange ? _formatDate(_endDate) : null,
       );
 
+      if (!mounted) return;
       setState(() {
         _previewRows = rows;
       });
     } catch (e) {
       debugPrint('Error loading preview: $e');
     } finally {
-      setState(() => _isLoadingPreview = false);
+      if (mounted) {
+        setState(() => _isLoadingPreview = false);
+      }
     }
   }
 
   Future<void> _performExport() async {
+    if (!mounted) return;
     setState(() {
       _isExporting = true;
       _statusMessage = null;
@@ -89,6 +94,7 @@ class _ExportCsvDialogState extends State<ExportCsvDialog> {
       endDate: end,
     );
 
+    if (!mounted) return;
     setState(() {
       _isExporting = false;
       if (result.success) {
